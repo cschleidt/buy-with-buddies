@@ -1,0 +1,2 @@
+CREATE OR REPLACE FUNCTION public.whoami() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT jsonb_build_object('uid', auth.uid(), 'role', auth.role(), 'jwt', auth.jwt()) $$;
+GRANT EXECUTE ON FUNCTION public.whoami() TO anon, authenticated;
