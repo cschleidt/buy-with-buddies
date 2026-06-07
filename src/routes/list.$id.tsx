@@ -65,12 +65,22 @@ function ListPage() {
     queryKey: ["members", id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: mm, error } = await supabase
         .from("list_members")
-        .select("user_id, profiles:user_id(email, display_name)")
+        .select("user_id")
         .eq("list_id", id);
       if (error) throw error;
-      return data;
+      const ids = mm.map((m) => m.user_id);
+      if (ids.length === 0) return [] as Array<{ user_id: string; profiles: { email: string; display_name: string | null } | null }>;
+      const { data: profs, error: pErr } = await supabase
+        .from("profiles")
+        .select("id, email, display_name")
+        .in("id", ids);
+      if (pErr) throw pErr;
+      return mm.map((m) => ({
+        user_id: m.user_id,
+        profiles: profs?.find((p) => p.id === m.user_id) ?? null,
+      }));
     },
   });
 
