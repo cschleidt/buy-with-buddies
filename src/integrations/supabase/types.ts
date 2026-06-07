@@ -14,13 +14,141 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      items: {
+        Row: {
+          bought_at: string | null
+          created_at: string
+          created_by: string
+          id: string
+          is_bought: boolean
+          list_id: string
+          name: string
+          note: string | null
+          quantity: number | null
+          unit: string | null
+        }
+        Insert: {
+          bought_at?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          is_bought?: boolean
+          list_id: string
+          name: string
+          note?: string | null
+          quantity?: number | null
+          unit?: string | null
+        }
+        Update: {
+          bought_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_bought?: boolean
+          list_id?: string
+          name?: string
+          note?: string | null
+          quantity?: number | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      list_members: {
+        Row: {
+          added_at: string
+          list_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          list_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          list_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "list_members_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email: string
+          id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      shopping_lists: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      find_user_id_by_email: { Args: { _email: string }; Returns: string }
+      is_list_member: {
+        Args: { _list_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_list_owner: {
+        Args: { _list_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
