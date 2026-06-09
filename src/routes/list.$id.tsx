@@ -166,9 +166,19 @@ function ListPage() {
       </header>
 
       <main className="px-4 pt-3 pb-32">
+        <form onSubmit={addItem} className="mb-4">
+          <Input
+            value={newItem}
+            onChange={(e) => setNewItem(e.target.value)}
+            placeholder="Tilføj vare, fx 2 ketchup"
+            className="h-12 rounded-2xl"
+            disabled={busy}
+          />
+        </form>
+
         {remaining.length === 0 && bought.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-muted-foreground">Tilføj din første vare med + knappen</p>
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Skriv en vare ovenfor for at tilføje den</p>
           </div>
         )}
 
