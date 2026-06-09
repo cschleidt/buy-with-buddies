@@ -102,24 +102,36 @@ function ListPage() {
     const text = newItem.trim();
     if (!text) return;
 
-    let quantity: number | null = null;
-    let itemName = text;
-    const parts = text.split(/\s+/);
-    const firstNum = parseFloat(parts[0].replace(",", "."));
-    if (!isNaN(firstNum) && parts.length > 1) {
-      quantity = firstNum;
-      itemName = parts.slice(1).join(" ");
+    const rawParts = text.split(/[,;]/);
+    const entries: Array<{ name: string; quantity: number | null }> = [];
+
+    for (const raw of rawParts) {
+      const part = raw.trim();
+      if (!part) continue;
+
+      let quantity: number | null = null;
+      let itemName = part;
+      const words = part.split(/\s+/);
+      const firstNum = parseFloat(words[0].replace(",", "."));
+      if (!isNaN(firstNum) && words.length > 1) {
+        quantity = firstNum;
+        itemName = words.slice(1).join(" ");
+      }
+      entries.push({ name: itemName, quantity });
     }
 
+    if (entries.length === 0) return;
+
     setBusy(true);
-    const { error } = await supabase.from("items").insert({
+    const rows = entries.map((e) => ({
       list_id: id,
-      name: itemName,
-      quantity,
+      name: e.name,
+      quantity: e.quantity,
       unit: null,
       note: null,
       created_by: user.id,
-    });
+    }));
+    const { error } = await supabase.from("items").insert(rows);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     setNewItem("");
