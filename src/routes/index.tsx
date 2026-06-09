@@ -93,7 +93,7 @@ function Home() {
           </div>
           <div>
             <h1 className="text-xl font-bold leading-tight">Mine lister</h1>
-            <p className="text-xs text-muted-foreground">{user.email}</p>
+            <p className="text-xs text-muted-foreground">@{user.username}</p>
           </div>
         </div>
         <button onClick={signOut} className="size-10 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Log ud">
