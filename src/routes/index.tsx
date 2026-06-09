@@ -25,7 +25,7 @@ const CHIP_COLORS = [
 ];
 
 function Home() {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const nav = useNavigate();
   const qc = useQueryClient();
 
@@ -77,8 +77,8 @@ function Home() {
     nav({ to: "/list/$id", params: { id: data.id } });
   }
 
-  async function signOut() {
-    await supabase.auth.signOut();
+  function handleSignOut() {
+    signOut();
     nav({ to: "/auth" });
   }
 
@@ -93,10 +93,10 @@ function Home() {
           </div>
           <div>
             <h1 className="text-xl font-bold leading-tight">Mine lister</h1>
-            <p className="text-xs text-muted-foreground">{user.email}</p>
+            <p className="text-xs text-muted-foreground">@{user.username}</p>
           </div>
         </div>
-        <button onClick={signOut} className="size-10 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Log ud">
+        <button onClick={handleSignOut} className="size-10 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Log ud">
           <LogOut className="size-5" />
         </button>
       </header>
