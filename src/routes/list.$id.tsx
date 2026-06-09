@@ -5,10 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { ChevronLeft, Plus, Trash2, Users, Check, X } from "lucide-react";
+import { ChevronLeft, Trash2, Users, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/list/$id")({
@@ -29,7 +27,7 @@ type Item = {
   bought_at: string | null;
 };
 
-const UNIT_SUGGESTIONS = ["stk", "kg", "g", "l", "dl", "pk"];
+
 
 function ListPage() {
   const { id } = Route.useParams();
@@ -95,29 +93,36 @@ function ListPage() {
     return () => { supabase.removeChannel(ch); };
   }, [id, user, qc]);
 
-  const [addOpen, setAddOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [qty, setQty] = useState("");
-  const [unit, setUnit] = useState("stk");
-  const [note, setNote] = useState("");
+  const [newItem, setNewItem] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
+    const text = newItem.trim();
+    if (!text) return;
+
+    let quantity: number | null = null;
+    let itemName = text;
+    const parts = text.split(/\s+/);
+    const firstNum = parseFloat(parts[0].replace(",", "."));
+    if (!isNaN(firstNum) && parts.length > 1) {
+      quantity = firstNum;
+      itemName = parts.slice(1).join(" ");
+    }
+
     setBusy(true);
     const { error } = await supabase.from("items").insert({
       list_id: id,
-      name: name.trim(),
-      quantity: qty ? Number(qty.replace(",", ".")) : null,
-      unit: unit || null,
-      note: note.trim() || null,
+      name: itemName,
+      quantity,
+      unit: null,
+      note: null,
       created_by: user.id,
     });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    setName(""); setQty(""); setNote(""); setUnit("stk");
-    setAddOpen(false);
+    setNewItem("");
   }
 
   async function toggleBought(item: Item) {
@@ -161,9 +166,19 @@ function ListPage() {
       </header>
 
       <main className="px-4 pt-3 pb-32">
+        <form onSubmit={addItem} className="mb-4">
+          <Input
+            value={newItem}
+            onChange={(e) => setNewItem(e.target.value)}
+            placeholder="Tilføj vare, fx 2 ketchup"
+            className="h-12 rounded-2xl"
+            disabled={busy}
+          />
+        </form>
+
         {remaining.length === 0 && bought.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-muted-foreground">Tilføj din første vare med + knappen</p>
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Skriv en vare ovenfor for at tilføje den</p>
           </div>
         )}
 
@@ -190,56 +205,6 @@ function ListPage() {
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 pointer-events-none">
-        <div className="max-w-md mx-auto px-5 pb-6 safe-bottom flex justify-end">
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <button
-              onClick={() => setAddOpen(true)}
-              className="pointer-events-auto h-14 px-6 rounded-full bg-primary text-primary-foreground font-medium shadow-xl flex items-center gap-2 active:scale-95 transition-transform"
-            >
-              <Plus className="size-5" /> Tilføj vare
-            </button>
-            <DialogContent className="rounded-3xl">
-              <DialogHeader><DialogTitle>Tilføj vare</DialogTitle></DialogHeader>
-              <form onSubmit={addItem} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="in">Vare</Label>
-                  <Input id="in" autoFocus required value={name} onChange={(e) => setName(e.target.value)} placeholder="fx Mælk" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="iq">Antal / mængde</Label>
-                    <Input id="iq" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="2" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="iu">Enhed</Label>
-                    <Input id="iu" value={unit} onChange={(e) => setUnit(e.target.value)} list="units" />
-                    <datalist id="units">
-                      {UNIT_SUGGESTIONS.map((u) => <option key={u} value={u} />)}
-                    </datalist>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {UNIT_SUGGESTIONS.map((u) => (
-                    <button key={u} type="button" onClick={() => setUnit(u)}
-                      className={`px-3 py-1 rounded-full text-xs border ${unit === u ? "bg-primary text-primary-foreground border-primary" : "bg-muted"}`}
-                    >{u}</button>
-                  ))}
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ino">Note (valgfri)</Label>
-                  <Input id="ino" value={note} onChange={(e) => setNote(e.target.value)} placeholder="fx økologisk, str. M" />
-                </div>
-                <DialogFooter>
-                  <Button type="submit" className="w-full h-12 rounded-full" disabled={busy || !name.trim()}>
-                    {busy ? "Tilføjer..." : "Tilføj"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
     </div>
   );
 }
