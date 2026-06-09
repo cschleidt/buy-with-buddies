@@ -5,22 +5,21 @@ import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ShoppingBasket } from "lucide-react";
+import { ShoppingBasket, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Log ind – Indkøb" }] }),
+  head: () => ({ meta: [{ title: "Kom i gang – Indkøb" }] }),
   component: AuthPage,
 });
 
 function AuthPage() {
   const nav = useNavigate();
   const { user, loading } = useAuth();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
 
   useEffect(() => {
     if (!loading && user) nav({ to: "/" });
@@ -30,18 +29,17 @@ function AuthPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === "signup") {
-        const redirectUrl = `${window.location.origin}/`;
-        const { error } = await supabase.auth.signUp({
-          email, password,
-          options: { emailRedirectTo: redirectUrl, data: { display_name: name || email.split("@")[0] } },
-        });
-        if (error) throw error;
-        toast.success("Konto oprettet! Du er nu logget ind.");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
+      const redirectUrl = `${window.location.origin}/`;
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: { display_name: name || email.split("@")[0] },
+        },
+      });
+      if (error) throw error;
+      setSent(true);
+      toast.success("Tjek din e-mail for et login-link");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Noget gik galt";
       toast.error(msg);
@@ -63,33 +61,43 @@ function AuthPage() {
           </p>
         </div>
 
-        <form onSubmit={submit} className="space-y-4">
-          {mode === "signup" && (
+        {sent ? (
+          <div className="text-center space-y-4">
+            <div className="size-16 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
+              <Mail className="size-8" />
+            </div>
+            <div>
+              <h2 className="font-semibold">Tjek din e-mail</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Vi har sendt et login-link til <strong>{email}</strong>. Klik på linket for at komme i gang.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSent(false)}
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Brug en anden e-mail
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="name">Navn</Label>
               <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Dit navn" autoComplete="name" />
             </div>
-          )}
-          <div className="space-y-1.5">
-            <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" inputMode="email" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Adgangskode</Label>
-            <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "signup" ? "new-password" : "current-password"} />
-          </div>
-          <Button type="submit" className="w-full h-12 text-base rounded-full" disabled={busy}>
-            {busy ? "Vent..." : mode === "signin" ? "Log ind" : "Opret konto"}
-          </Button>
-        </form>
-
-        <button
-          type="button"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          className="mt-6 text-sm text-muted-foreground hover:text-foreground text-center"
-        >
-          {mode === "signin" ? "Har du ikke en konto? Opret en" : "Har du allerede en konto? Log ind"}
-        </button>
+            <div className="space-y-1.5">
+              <Label htmlFor="email">E-mail</Label>
+              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" inputMode="email" placeholder="dig@example.com" />
+            </div>
+            <Button type="submit" className="w-full h-12 text-base rounded-full" disabled={busy}>
+              {busy ? "Sender..." : "Send login-link"}
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              Ingen adgangskode nødvendig – du modtager et link på din e-mail.
+            </p>
+          </form>
+        )}
       </div>
     </div>
   );
