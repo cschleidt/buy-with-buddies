@@ -5,10 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { ChevronLeft, Plus, Trash2, Users, Check, X } from "lucide-react";
+import { ChevronLeft, Trash2, Users, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/list/$id")({
