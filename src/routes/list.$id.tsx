@@ -93,29 +93,36 @@ function ListPage() {
     return () => { supabase.removeChannel(ch); };
   }, [id, user, qc]);
 
-  const [addOpen, setAddOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [qty, setQty] = useState("");
-  const [unit, setUnit] = useState("stk");
-  const [note, setNote] = useState("");
+  const [newItem, setNewItem] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
+    const text = newItem.trim();
+    if (!text) return;
+
+    let quantity: number | null = null;
+    let itemName = text;
+    const parts = text.split(/\s+/);
+    const firstNum = parseFloat(parts[0].replace(",", "."));
+    if (!isNaN(firstNum) && parts.length > 1) {
+      quantity = firstNum;
+      itemName = parts.slice(1).join(" ");
+    }
+
     setBusy(true);
     const { error } = await supabase.from("items").insert({
       list_id: id,
-      name: name.trim(),
-      quantity: qty ? Number(qty.replace(",", ".")) : null,
-      unit: unit || null,
-      note: note.trim() || null,
+      name: itemName,
+      quantity,
+      unit: null,
+      note: null,
       created_by: user.id,
     });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    setName(""); setQty(""); setNote(""); setUnit("stk");
-    setAddOpen(false);
+    setNewItem("");
   }
 
   async function toggleBought(item: Item) {
