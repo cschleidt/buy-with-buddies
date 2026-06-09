@@ -25,7 +25,7 @@ const CHIP_COLORS = [
 ];
 
 function Home() {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const nav = useNavigate();
   const qc = useQueryClient();
 
@@ -96,7 +96,7 @@ function Home() {
             <p className="text-xs text-muted-foreground">@{user.username}</p>
           </div>
         </div>
-        <button onClick={signOut} className="size-10 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Log ud">
+        <button onClick={handleSignOut} className="size-10 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Log ud">
           <LogOut className="size-5" />
         </button>
       </header>
