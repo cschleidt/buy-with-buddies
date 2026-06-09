@@ -182,7 +182,7 @@ function ListPage() {
           <Input
             value={newItem}
             onChange={(e) => setNewItem(e.target.value)}
-            placeholder="Tilføj vare, fx 2 ketchup"
+            placeholder="Tilføj vare, fx 2 ketchup, mælk, 3 æbler"
             className="h-12 rounded-2xl"
             disabled={busy}
           />
