@@ -18,31 +18,48 @@ function AuthPage() {
   const { user, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [step, setStep] = useState<"email" | "code">("email");
 
   useEffect(() => {
     if (!loading && user) nav({ to: "/" });
   }, [user, loading, nav]);
 
-  async function submit(e: React.FormEvent) {
+  async function sendCode(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      const redirectUrl = `${window.location.origin}/`;
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: redirectUrl,
+          shouldCreateUser: true,
           data: { display_name: name || email.split("@")[0] },
         },
       });
       if (error) throw error;
-      setSent(true);
-      toast.success("Tjek din e-mail for et login-link");
+      setStep("code");
+      toast.success("Vi har sendt en kode til din e-mail");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Noget gik galt";
-      toast.error(msg);
+      toast.error(err instanceof Error ? err.message : "Noget gik galt");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: code.trim(),
+        type: "email",
+      });
+      if (error) throw error;
+      toast.success("Du er logget ind");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Forkert eller udløbet kode");
     } finally {
       setBusy(false);
     }
@@ -61,27 +78,8 @@ function AuthPage() {
           </p>
         </div>
 
-        {sent ? (
-          <div className="text-center space-y-4">
-            <div className="size-16 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
-              <Mail className="size-8" />
-            </div>
-            <div>
-              <h2 className="font-semibold">Tjek din e-mail</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Vi har sendt et login-link til <strong>{email}</strong>. Klik på linket for at komme i gang.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSent(false)}
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              Brug en anden e-mail
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={submit} className="space-y-4">
+        {step === "email" ? (
+          <form onSubmit={sendCode} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="name">Navn</Label>
               <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Dit navn" autoComplete="name" />
@@ -91,11 +89,47 @@ function AuthPage() {
               <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" inputMode="email" placeholder="dig@example.com" />
             </div>
             <Button type="submit" className="w-full h-12 text-base rounded-full" disabled={busy}>
-              {busy ? "Sender..." : "Send login-link"}
+              {busy ? "Sender..." : "Send kode"}
             </Button>
             <p className="text-xs text-muted-foreground text-center">
-              Ingen adgangskode nødvendig – du modtager et link på din e-mail.
+              Ingen adgangskode – vi sender en 6-cifret kode til din e-mail.
             </p>
+          </form>
+        ) : (
+          <form onSubmit={verifyCode} className="space-y-4">
+            <div className="flex flex-col items-center gap-3 mb-2">
+              <div className="size-14 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                <Mail className="size-7" />
+              </div>
+              <p className="text-sm text-muted-foreground text-center">
+                Indtast koden vi sendte til<br /><strong className="text-foreground">{email}</strong>
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="code">Kode</Label>
+              <Input
+                id="code"
+                required
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="123456"
+                className="text-center text-2xl tracking-widest font-mono h-14"
+                maxLength={6}
+                autoFocus
+              />
+            </div>
+            <Button type="submit" className="w-full h-12 text-base rounded-full" disabled={busy || code.length !== 6}>
+              {busy ? "Tjekker..." : "Log ind"}
+            </Button>
+            <button
+              type="button"
+              onClick={() => { setStep("email"); setCode(""); }}
+              className="w-full text-sm text-muted-foreground hover:text-foreground text-center"
+            >
+              Brug en anden e-mail
+            </button>
           </form>
         )}
       </div>
