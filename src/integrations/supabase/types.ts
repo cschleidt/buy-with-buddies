@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_users: {
+        Row: {
+          created_at: string
+          id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          username?: string
+        }
+        Relationships: []
+      }
       items: {
         Row: {
           bought_at: string | null
@@ -90,27 +108,6 @@ export type Database = {
           },
         ]
       }
-      profiles: {
-        Row: {
-          created_at: string
-          display_name: string | null
-          email: string
-          id: string
-        }
-        Insert: {
-          created_at?: string
-          display_name?: string | null
-          email: string
-          id: string
-        }
-        Update: {
-          created_at?: string
-          display_name?: string | null
-          email?: string
-          id?: string
-        }
-        Relationships: []
-      }
       shopping_lists: {
         Row: {
           color: string
@@ -140,7 +137,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      find_user_id_by_email: { Args: { _email: string }; Returns: string }
+      find_or_create_user_by_username: {
+        Args: { _username: string }
+        Returns: string
+      }
+      find_user_id_by_username: { Args: { _username: string }; Returns: string }
       is_list_member: {
         Args: { _list_id: string; _user_id: string }
         Returns: boolean
