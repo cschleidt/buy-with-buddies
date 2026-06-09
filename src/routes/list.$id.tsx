@@ -71,15 +71,15 @@ function ListPage() {
         .eq("list_id", id);
       if (error) throw error;
       const ids = mm.map((m) => m.user_id);
-      if (ids.length === 0) return [] as Array<{ user_id: string; profiles: { email: string; display_name: string | null } | null }>;
-      const { data: profs, error: pErr } = await supabase
-        .from("profiles")
-        .select("id, email, display_name")
+      if (ids.length === 0) return [] as Array<{ user_id: string; username: string | null }>;
+      const { data: users, error: pErr } = await supabase
+        .from("app_users")
+        .select("id, username")
         .in("id", ids);
       if (pErr) throw pErr;
       return mm.map((m) => ({
         user_id: m.user_id,
-        profiles: profs?.find((p) => p.id === m.user_id) ?? null,
+        username: users?.find((u) => u.id === m.user_id)?.username ?? null,
       }));
     },
   });
@@ -272,22 +272,22 @@ function ItemRow({ item, onToggle, onRemove }: { item: Item; onToggle: () => voi
   );
 }
 
-function ShareSheet({ listId, isOwner, members }: { listId: string; isOwner: boolean; members: Array<{ user_id: string; profiles: { email: string; display_name: string | null } | null }> }) {
+function ShareSheet({ listId, isOwner, members }: { listId: string; isOwner: boolean; members: Array<{ user_id: string; username: string | null }> }) {
   const qc = useQueryClient();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function invite(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      const { data: uid, error: fErr } = await supabase.rpc("find_user_id_by_email", { _email: email.trim() });
+      const { data: uid, error: fErr } = await supabase.rpc("find_user_id_by_username", { _username: username.trim() });
       if (fErr) throw fErr;
-      if (!uid) { toast.error("Ingen bruger fundet med den e-mail. Bed dem oprette konto først."); return; }
-      const { error } = await supabase.from("list_members").insert({ list_id: listId, user_id: uid });
+      if (!uid) { toast.error("Ingen bruger fundet med det brugernavn. Bed dem oprette sig først."); return; }
+      const { error } = await supabase.from("list_members").insert({ list_id: listId, user_id: uid as string });
       if (error) throw error;
       toast.success("Tilføjet til listen");
-      setEmail("");
+      setUsername("");
       qc.invalidateQueries({ queryKey: ["members", listId] });
     } catch (err: unknown) {
       const m = err instanceof Error ? err.message : "Kunne ikke dele";
@@ -318,7 +318,13 @@ function ShareSheet({ listId, isOwner, members }: { listId: string; isOwner: boo
         <div className="px-4 pb-6 space-y-4">
           {isOwner ? (
             <form onSubmit={invite} className="flex gap-2">
-              <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e-mail" inputMode="email" />
+              <Input
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="brugernavn"
+                autoComplete="off"
+              />
               <Button type="submit" disabled={busy} className="rounded-full px-5">Tilføj</Button>
             </form>
           ) : (
@@ -331,8 +337,7 @@ function ShareSheet({ listId, isOwner, members }: { listId: string; isOwner: boo
               {members.map((m) => (
                 <li key={m.user_id} className="flex items-center justify-between bg-muted rounded-xl px-3 py-2">
                   <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{m.profiles?.display_name || m.profiles?.email}</div>
-                    {m.profiles?.display_name && <div className="text-xs text-muted-foreground truncate">{m.profiles.email}</div>}
+                    <div className="text-sm font-medium truncate">@{m.username ?? "ukendt"}</div>
                   </div>
                   {isOwner && (
                     <button onClick={() => remove(m.user_id)} className="size-8 rounded-full hover:bg-destructive/10 hover:text-destructive flex items-center justify-center" aria-label="Fjern medlem">
