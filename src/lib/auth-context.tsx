@@ -1,33 +1,55 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type AuthCtx = {
-  user: User | null;
-  session: Session | null;
+export type AppUser = { id: string; username: string };
+
+type UserCtx = {
+  user: AppUser | null;
   loading: boolean;
+  signIn: (username: string) => Promise<AppUser>;
+  signOut: () => void;
 };
 
-const Ctx = createContext<AuthCtx>({ user: null, session: null, loading: true });
+const STORAGE_KEY = "indkob.user";
+
+const Ctx = createContext<UserCtx>({
+  user: null,
+  loading: true,
+  signIn: async () => { throw new Error("not ready"); },
+  signOut: () => {},
+});
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-      setLoading(false);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-    return () => sub.subscription.unsubscribe();
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
+      if (raw) setUser(JSON.parse(raw) as AppUser);
+    } catch { /* ignore */ }
+    setLoading(false);
   }, []);
 
+  async function signIn(username: string): Promise<AppUser> {
+    const trimmed = username.trim();
+    if (!trimmed) throw new Error("Brugernavn må ikke være tomt");
+    const { data, error } = await supabase.rpc("find_or_create_user_by_username", { _username: trimmed });
+    if (error) throw error;
+    if (!data) throw new Error("Kunne ikke oprette bruger");
+    const next: AppUser = { id: data as string, username: trimmed };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    setUser(next);
+    return next;
+  }
+
+  function signOut() {
+    window.localStorage.removeItem(STORAGE_KEY);
+    setUser(null);
+  }
+
   return (
-    <Ctx.Provider value={{ user: session?.user ?? null, session, loading }}>
+    <Ctx.Provider value={{ user, loading, signIn, signOut }}>
       {children}
     </Ctx.Provider>
   );
