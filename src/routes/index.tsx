@@ -77,8 +77,8 @@ function Home() {
     nav({ to: "/list/$id", params: { id: data.id } });
   }
 
-  async function signOut() {
-    await supabase.auth.signOut();
+  function handleSignOut() {
+    signOut();
     nav({ to: "/auth" });
   }
 
