@@ -27,7 +27,7 @@ type Item = {
   bought_at: string | null;
 };
 
-const UNIT_SUGGESTIONS = ["stk", "kg", "g", "l", "dl", "pk"];
+
 
 function ListPage() {
   const { id } = Route.useParams();
