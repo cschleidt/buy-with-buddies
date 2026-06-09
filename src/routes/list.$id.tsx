@@ -205,56 +205,6 @@ function ListPage() {
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 pointer-events-none">
-        <div className="max-w-md mx-auto px-5 pb-6 safe-bottom flex justify-end">
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <button
-              onClick={() => setAddOpen(true)}
-              className="pointer-events-auto h-14 px-6 rounded-full bg-primary text-primary-foreground font-medium shadow-xl flex items-center gap-2 active:scale-95 transition-transform"
-            >
-              <Plus className="size-5" /> Tilføj vare
-            </button>
-            <DialogContent className="rounded-3xl">
-              <DialogHeader><DialogTitle>Tilføj vare</DialogTitle></DialogHeader>
-              <form onSubmit={addItem} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="in">Vare</Label>
-                  <Input id="in" autoFocus required value={name} onChange={(e) => setName(e.target.value)} placeholder="fx Mælk" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="iq">Antal / mængde</Label>
-                    <Input id="iq" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="2" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="iu">Enhed</Label>
-                    <Input id="iu" value={unit} onChange={(e) => setUnit(e.target.value)} list="units" />
-                    <datalist id="units">
-                      {UNIT_SUGGESTIONS.map((u) => <option key={u} value={u} />)}
-                    </datalist>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {UNIT_SUGGESTIONS.map((u) => (
-                    <button key={u} type="button" onClick={() => setUnit(u)}
-                      className={`px-3 py-1 rounded-full text-xs border ${unit === u ? "bg-primary text-primary-foreground border-primary" : "bg-muted"}`}
-                    >{u}</button>
-                  ))}
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ino">Note (valgfri)</Label>
-                  <Input id="ino" value={note} onChange={(e) => setNote(e.target.value)} placeholder="fx økologisk, str. M" />
-                </div>
-                <DialogFooter>
-                  <Button type="submit" className="w-full h-12 rounded-full" disabled={busy || !name.trim()}>
-                    {busy ? "Tilføjer..." : "Tilføj"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
     </div>
   );
 }
