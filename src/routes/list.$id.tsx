@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { ChevronLeft, Trash2, Users, Check, X } from "lucide-react";
+import { ChevronLeft, Trash2, Users, Check, X, LogOut } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/list/$id")({
@@ -174,7 +174,7 @@ function ListPage() {
           <ChevronLeft className="size-5" />
         </Link>
         <h1 className="font-semibold truncate flex-1 text-center px-2">{list?.name ?? "..."}</h1>
-        <ShareSheet listId={id} isOwner={isOwner} members={members ?? []} />
+        <ShareSheet listId={id} isOwner={isOwner} members={members ?? []} userId={user.id} />
       </header>
 
       <main className="px-4 pt-3 pb-32">
@@ -249,7 +249,8 @@ function ItemRow({ item, onToggle, onRemove }: { item: Item; onToggle: () => voi
   );
 }
 
-function ShareSheet({ listId, isOwner, members }: { listId: string; isOwner: boolean; members: Array<{ user_id: string; username: string | null }> }) {
+function ShareSheet({ listId, isOwner, members, userId }: { listId: string; isOwner: boolean; members: Array<{ user_id: string; username: string | null }>; userId: string }) {
+  const nav = useNavigate();
   const qc = useQueryClient();
   const [username, setUsername] = useState("");
   const [busy, setBusy] = useState(false);
@@ -272,10 +273,19 @@ function ShareSheet({ listId, isOwner, members }: { listId: string; isOwner: boo
     } finally { setBusy(false); }
   }
 
-  async function remove(userId: string) {
-    const { error } = await supabase.from("list_members").delete().eq("list_id", listId).eq("user_id", userId);
+  async function remove(userIdToRemove: string) {
+    const { error } = await supabase.from("list_members").delete().eq("list_id", listId).eq("user_id", userIdToRemove);
     if (error) toast.error(error.message);
     else { toast.success("Fjernet"); qc.invalidateQueries({ queryKey: ["members", listId] }); }
+  }
+
+  async function leaveList() {
+    if (!confirm("Er du sikker på, at du vil forlade denne liste?")) return;
+    const { error } = await supabase.from("list_members").delete().eq("list_id", listId).eq("user_id", userId);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Du har forladt listen");
+    qc.invalidateQueries({ queryKey: ["lists"] });
+    nav({ to: "/" });
   }
 
   return (
@@ -325,6 +335,14 @@ function ShareSheet({ listId, isOwner, members }: { listId: string; isOwner: boo
               ))}
             </ul>
           </div>
+          {!isOwner && (
+            <button
+              onClick={leaveList}
+              className="w-full h-12 rounded-full border border-destructive text-destructive font-medium flex items-center justify-center gap-2 active:scale-95 transition-transform"
+            >
+              <LogOut className="size-4" /> Forlad liste
+            </button>
+          )}
         </div>
       </SheetContent>
     </Sheet>

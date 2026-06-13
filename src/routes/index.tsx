@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, ShoppingBasket, LogOut, Users, ChevronRight } from "lucide-react";
+import { Plus, ShoppingBasket, LogOut, Users, ChevronRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
@@ -60,6 +60,7 @@ function Home() {
   const [name, setName] = useState("");
   const [color, setColor] = useState("emerald");
   const [busy, setBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function createList(e: React.FormEvent) {
     e.preventDefault();
@@ -75,6 +76,22 @@ function Home() {
     setOpen(false);
     setName("");
     nav({ to: "/list/$id", params: { id: data.id } });
+  }
+
+  async function deleteList(listId: string, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm("Er du sikker på, at du vil slette denne liste?")) return;
+    setDeletingId(listId);
+    const { error: itemsErr } = await supabase.from("items").delete().eq("list_id", listId);
+    if (itemsErr) { toast.error(itemsErr.message); setDeletingId(null); return; }
+    const { error: membersErr } = await supabase.from("list_members").delete().eq("list_id", listId);
+    if (membersErr) { toast.error(membersErr.message); setDeletingId(null); return; }
+    const { error } = await supabase.from("shopping_lists").delete().eq("id", listId);
+    setDeletingId(null);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Liste slettet");
+    qc.invalidateQueries({ queryKey: ["lists"] });
   }
 
   function handleSignOut() {
@@ -114,6 +131,7 @@ function Home() {
               const itemCount = (l.items as unknown as { count: number }[])?.[0]?.count ?? 0;
               const memberCount = ((l.list_members as unknown as { count: number }[])?.[0]?.count ?? 0) + 1;
               const chip = CHIP_COLORS.find(c => c.id === l.color) ?? CHIP_COLORS[0];
+              const isOwner = l.owner_id === user.id;
               return (
                 <li key={l.id}>
                   <Link to="/list/$id" params={{ id: l.id }} className="block bg-card border rounded-2xl p-4 active:scale-[0.98] transition-transform">
@@ -127,10 +145,21 @@ function Home() {
                           <span>{itemCount} varer</span>
                           <span>·</span>
                           <span className="flex items-center gap-1"><Users className="size-3" />{memberCount}</span>
-                          {l.owner_id !== user.id && <><span>·</span><span>Delt med dig</span></>}
+                          {!isOwner && <><span>·</span><span>Delt med dig</span></>}
                         </p>
                       </div>
-                      <ChevronRight className="size-5 text-muted-foreground shrink-0" />
+                      {isOwner ? (
+                        <button
+                          onClick={(e) => deleteList(l.id, e)}
+                          disabled={deletingId === l.id}
+                          className="size-10 rounded-full hover:bg-destructive/10 hover:text-destructive text-muted-foreground flex items-center justify-center shrink-0"
+                          aria-label="Slet liste"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      ) : (
+                        <ChevronRight className="size-5 text-muted-foreground shrink-0" />
+                      )}
                     </div>
                   </Link>
                 </li>
