@@ -96,6 +96,78 @@ function ListPage() {
 
   const [newItem, setNewItem] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showSug, setShowSug] = useState(false);
+  const [sugIndex, setSugIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const existingNames = useMemo(
+    () => new Set((items ?? []).map((i) => i.name.trim().toLowerCase())),
+    [items],
+  );
+
+  const lastSegment = useMemo(() => {
+    const parts = newItem.split(/[,;]/);
+    return parts[parts.length - 1] ?? "";
+  }, [newItem]);
+
+  const sugQuery = useMemo(() => {
+    const trimmed = lastSegment.trim();
+    const words = trimmed.split(/\s+/);
+    const firstNum = parseFloat((words[0] ?? "").replace(",", "."));
+    const q = !isNaN(firstNum) && words.length > 1 ? words.slice(1).join(" ") : trimmed;
+    return q.toLowerCase();
+  }, [lastSegment]);
+
+  const suggestions = useMemo(() => {
+    if (sugQuery.length < 1) return [];
+    const starts = GROCERY_SUGGESTIONS.filter(
+      (s) => s.toLowerCase().startsWith(sugQuery) && !existingNames.has(s.toLowerCase()),
+    );
+    const contains = GROCERY_SUGGESTIONS.filter(
+      (s) =>
+        !s.toLowerCase().startsWith(sugQuery) &&
+        s.toLowerCase().includes(sugQuery) &&
+        !existingNames.has(s.toLowerCase()),
+    );
+    return [...starts, ...contains].slice(0, 6);
+  }, [sugQuery, existingNames]);
+
+  useEffect(() => {
+    setSugIndex(0);
+  }, [sugQuery]);
+
+  function applySuggestion(suggestion: string) {
+    const parts = newItem.split(/([,;])/);
+    const lastIdx = parts.length - 1;
+    const currentRaw = parts[lastIdx] ?? "";
+    const leading = currentRaw.match(/^\s*/)?.[0] ?? " ";
+    const trimmed = currentRaw.trim();
+    const words = trimmed.split(/\s+/);
+    const firstNum = parseFloat((words[0] ?? "").replace(",", "."));
+    const qtyPrefix = !isNaN(firstNum) ? `${words[0]} ` : "";
+    const prefixSpace = parts.length > 1 && !leading ? " " : leading;
+    parts[lastIdx] = `${prefixSpace}${qtyPrefix}${suggestion}`;
+    setNewItem(parts.join(""));
+    setShowSug(false);
+    setSugIndex(0);
+    inputRef.current?.focus();
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!showSug || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSugIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSugIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      applySuggestion(suggestions[sugIndex]);
+    } else if (e.key === "Escape") {
+      setShowSug(false);
+    }
+  }
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
