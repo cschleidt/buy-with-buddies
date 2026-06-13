@@ -108,6 +108,36 @@ export type Database = {
           },
         ]
       }
+      saved_recipes: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          ingredients: Json
+          title: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          ingredients?: Json
+          title: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          ingredients?: Json
+          title?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       shopping_lists: {
         Row: {
           color: string
