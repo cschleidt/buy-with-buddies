@@ -37,12 +37,35 @@ function Home() {
     queryKey: ["lists", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("shopping_lists")
-        .select("id, name, color, owner_id, created_at, items(count), list_members(count)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      const [ownedRes, memberRes] = await Promise.all([
+        supabase
+          .from("shopping_lists")
+          .select("id, name, color, owner_id, created_at, items(count), list_members(count)")
+          .eq("owner_id", user!.id),
+        supabase
+          .from("list_members")
+          .select("list_id")
+          .eq("user_id", user!.id),
+      ]);
+      if (ownedRes.error) throw ownedRes.error;
+      if (memberRes.error) throw memberRes.error;
+
+      const map = new Map<string, NonNullable<typeof ownedRes.data>[number]>();
+      for (const l of (ownedRes.data ?? [])) map.set(l.id, l);
+
+      if (memberRes.data && memberRes.data.length > 0) {
+        const ids = memberRes.data.map((m) => m.list_id);
+        const { data: shared, error: sharedErr } = await supabase
+          .from("shopping_lists")
+          .select("id, name, color, owner_id, created_at, items(count), list_members(count)")
+          .in("id", ids);
+        if (sharedErr) throw sharedErr;
+        for (const l of (shared ?? [])) map.set(l.id, l);
+      }
+
+      return Array.from(map.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
     },
   });
 
