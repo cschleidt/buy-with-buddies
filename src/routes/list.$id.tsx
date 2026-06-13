@@ -251,14 +251,35 @@ function ListPage() {
       </header>
 
       <main className="px-4 pt-3 pb-32">
-        <form onSubmit={addItem} className="mb-4">
+        <form onSubmit={(e) => { addItem(e); setShowSug(false); }} className="mb-4 relative">
           <Input
+            ref={inputRef}
             value={newItem}
-            onChange={(e) => setNewItem(e.target.value)}
+            onChange={(e) => { setNewItem(e.target.value); setShowSug(true); }}
+            onFocus={() => setShowSug(true)}
+            onBlur={() => setTimeout(() => setShowSug(false), 150)}
+            onKeyDown={onKeyDown}
             placeholder="Tilføj vare, fx 2 ketchup, mælk, 3 æbler"
             className="h-12 rounded-2xl"
             disabled={busy}
+            autoComplete="off"
           />
+          {showSug && suggestions.length > 0 && (
+            <ul className="absolute left-0 right-0 top-full mt-1 z-20 bg-popover border rounded-2xl shadow-lg overflow-hidden">
+              {suggestions.map((s, i) => (
+                <li key={s}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); applySuggestion(s); }}
+                    onMouseEnter={() => setSugIndex(i)}
+                    className={`w-full text-left px-4 py-2.5 text-sm ${i === sugIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"}`}
+                  >
+                    {s}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </form>
 
         {remaining.length === 0 && bought.length === 0 && (
