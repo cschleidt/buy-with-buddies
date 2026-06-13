@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ChevronLeft, Trash2, Users, Check, X, LogOut } from "lucide-react";
 import { toast } from "sonner";
+import { GROCERY_SUGGESTIONS } from "@/lib/grocery-suggestions";
 
 export const Route = createFileRoute("/list/$id")({
   head: () => ({ meta: [{ title: "Indkøbsliste" }] }),
