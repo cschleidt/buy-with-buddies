@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ChevronLeft, Trash2, Users, Check, X, LogOut } from "lucide-react";
 import { toast } from "sonner";
+import { GROCERY_SUGGESTIONS } from "@/lib/grocery-suggestions";
 
 export const Route = createFileRoute("/list/$id")({
   head: () => ({ meta: [{ title: "Indkøbsliste" }] }),
@@ -95,6 +96,78 @@ function ListPage() {
 
   const [newItem, setNewItem] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showSug, setShowSug] = useState(false);
+  const [sugIndex, setSugIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const existingNames = useMemo(
+    () => new Set((items ?? []).map((i) => i.name.trim().toLowerCase())),
+    [items],
+  );
+
+  const lastSegment = useMemo(() => {
+    const parts = newItem.split(/[,;]/);
+    return parts[parts.length - 1] ?? "";
+  }, [newItem]);
+
+  const sugQuery = useMemo(() => {
+    const trimmed = lastSegment.trim();
+    const words = trimmed.split(/\s+/);
+    const firstNum = parseFloat((words[0] ?? "").replace(",", "."));
+    const q = !isNaN(firstNum) && words.length > 1 ? words.slice(1).join(" ") : trimmed;
+    return q.toLowerCase();
+  }, [lastSegment]);
+
+  const suggestions = useMemo(() => {
+    if (sugQuery.length < 1) return [];
+    const starts = GROCERY_SUGGESTIONS.filter(
+      (s) => s.toLowerCase().startsWith(sugQuery) && !existingNames.has(s.toLowerCase()),
+    );
+    const contains = GROCERY_SUGGESTIONS.filter(
+      (s) =>
+        !s.toLowerCase().startsWith(sugQuery) &&
+        s.toLowerCase().includes(sugQuery) &&
+        !existingNames.has(s.toLowerCase()),
+    );
+    return [...starts, ...contains].slice(0, 6);
+  }, [sugQuery, existingNames]);
+
+  useEffect(() => {
+    setSugIndex(0);
+  }, [sugQuery]);
+
+  function applySuggestion(suggestion: string) {
+    const parts = newItem.split(/([,;])/);
+    const lastIdx = parts.length - 1;
+    const currentRaw = parts[lastIdx] ?? "";
+    const leading = currentRaw.match(/^\s*/)?.[0] ?? " ";
+    const trimmed = currentRaw.trim();
+    const words = trimmed.split(/\s+/);
+    const firstNum = parseFloat((words[0] ?? "").replace(",", "."));
+    const qtyPrefix = !isNaN(firstNum) ? `${words[0]} ` : "";
+    const prefixSpace = parts.length > 1 && !leading ? " " : leading;
+    parts[lastIdx] = `${prefixSpace}${qtyPrefix}${suggestion}`;
+    setNewItem(parts.join(""));
+    setShowSug(false);
+    setSugIndex(0);
+    inputRef.current?.focus();
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!showSug || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSugIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSugIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      applySuggestion(suggestions[sugIndex]);
+    } else if (e.key === "Escape") {
+      setShowSug(false);
+    }
+  }
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
@@ -178,14 +251,35 @@ function ListPage() {
       </header>
 
       <main className="px-4 pt-3 pb-32">
-        <form onSubmit={addItem} className="mb-4">
+        <form onSubmit={(e) => { addItem(e); setShowSug(false); }} className="mb-4 relative">
           <Input
+            ref={inputRef}
             value={newItem}
-            onChange={(e) => setNewItem(e.target.value)}
+            onChange={(e) => { setNewItem(e.target.value); setShowSug(true); }}
+            onFocus={() => setShowSug(true)}
+            onBlur={() => setTimeout(() => setShowSug(false), 150)}
+            onKeyDown={onKeyDown}
             placeholder="Tilføj vare, fx 2 ketchup, mælk, 3 æbler"
             className="h-12 rounded-2xl"
             disabled={busy}
+            autoComplete="off"
           />
+          {showSug && suggestions.length > 0 && (
+            <ul className="absolute left-0 right-0 top-full mt-1 z-20 bg-popover border rounded-2xl shadow-lg overflow-hidden">
+              {suggestions.map((s, i) => (
+                <li key={s}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); applySuggestion(s); }}
+                    onMouseEnter={() => setSugIndex(i)}
+                    className={`w-full text-left px-4 py-2.5 text-sm ${i === sugIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"}`}
+                  >
+                    {s}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </form>
 
         {remaining.length === 0 && bought.length === 0 && (
