@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, ShoppingBasket, LogOut, Users, ChevronRight, Trash2 } from "lucide-react";
+import { Plus, ShoppingBasket, LogOut, Users, ChevronRight, Trash2, ChefHat } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
@@ -136,9 +136,14 @@ function Home() {
             <p className="text-xs text-muted-foreground">@{user.username}</p>
           </div>
         </div>
-        <button onClick={handleSignOut} className="size-10 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Log ud">
-          <LogOut className="size-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <Link to="/recipes" className="size-10 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Opskrifter">
+            <ChefHat className="size-5" />
+          </Link>
+          <button onClick={handleSignOut} className="size-10 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Log ud">
+            <LogOut className="size-5" />
+          </button>
+        </div>
       </header>
 
       <main className="px-5 pt-4 pb-28">
