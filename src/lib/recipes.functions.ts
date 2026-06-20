@@ -32,10 +32,10 @@ export type RecipeSuggestion = z.infer<typeof RecipeSchema>;
 export type RecipeSearchResponse = z.infer<typeof ResponseSchema>;
 
 export const searchRecipes = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => SearchInput.parse(input))
+  .validator((input: unknown) => SearchInput.parse(input))
   .handler(async ({ data }) => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    const key = process.env.GOOGLE_API_KEY;
+    if (!key) throw new Error("Missing GOOGLE_API_KEY");
 
     const system = `Du er en hjælpsom dansk madassistent. Brugeren beskriver hvilken opskrift de leder efter, og du foreslår 2-4 konkrete opskrifter på dansk.
 
@@ -54,14 +54,14 @@ Svar ALTID med valid JSON i dette format:
 
 Brug realistiske mængder til 4 personer. Hvis brugeren stiller opklarende spørgsmål, returnér tom recipes-liste og spørg tilbage i "reply".`;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gemini-2.5-flash",
         messages: [
           { role: "system", content: system },
           ...data.messages,
