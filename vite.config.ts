@@ -5,5 +5,5 @@ export default defineConfig({
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     server: { entry: "server" },
   },
-  nitro: { preset: "azure-swa" },
+  nitro: { preset: "node-server" },
 });

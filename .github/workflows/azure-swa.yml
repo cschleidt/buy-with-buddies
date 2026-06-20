@@ -1,4 +1,4 @@
-name: Deploy to Azure Static Web Apps
+name: Deploy to Azure App Service
 
 on:
   push:
@@ -27,20 +27,10 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
-      - name: Show build output
-        run: find .output -maxdepth 3 -type f | sort || echo "No .output directory found"
-
-      - name: Inject correct SWA routing config
-        run: |
-          mkdir -p .output/public
-          cp staticwebapp.config.json .output/public/staticwebapp.config.json
-
-      - name: Deploy to Azure Static Web Apps
-        uses: Azure/static-web-apps-deploy@v1
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: upload
-          app_location: .output/public
-          api_location: .output/server
-          skip_app_build: true
+          app-name: buy-with-buddies
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: .output
+          startup-command: node server/index.mjs
