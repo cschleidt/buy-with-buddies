@@ -65,7 +65,7 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
 
       // Nitro node-server entry point.
       // CI deploys .output/ as the app root, so server/index.mjs is at root level.
-      appCommandLine: 'node server/index.mjs'
+      appCommandLine: 'node server/server.js'
 
       // Disable Azure's own npm install/build — CI already built the app.
       appSettings: [

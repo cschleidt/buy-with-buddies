@@ -15,7 +15,7 @@
 #
 # SECRETS (set in GitHub → Settings → Environments → production)
 # ──────────────────────────────────────────────────────────────
-#   AZURE_RESOURCE_GROUP         → rg-buy-with-buddies-prod
+#   AZURE_RESOURCE_GROUP         → rg-shoppingapp
 #   AZURE_WEBAPP_NAME            → buy-with-buddies
 #   AZURE_WEBAPP_PUBLISH_PROFILE → publish profile for the production App Service
 #
@@ -38,7 +38,7 @@ on:
 
 env:
   NODE_VERSION: '20.x'
-  BUILD_OUTPUT_DIR: '.output'
+  BUILD_OUTPUT_DIR: 'dist'
 
 jobs:
   # ----------------------------------------------------------
@@ -83,25 +83,23 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: npm install
+        run: bun install --frozen-lockfile
 
       - name: Build SSR app
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: npm run build
+        run: bun run build
 
-      - name: Verify Nitro output
+      - name: Verify build output
         run: |
-          test -f ${{ env.BUILD_OUTPUT_DIR }}/server/index.mjs \
+          test -f ${{ env.BUILD_OUTPUT_DIR }}/server/server.js \
             && echo "Server entry: EXISTS" \
-            || (echo "Server entry: MISSING" && exit 1)
+            || (echo "Server entry: MISSING — contents of dist/:" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/ && exit 1)
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
