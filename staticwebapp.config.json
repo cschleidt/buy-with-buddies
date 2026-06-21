@@ -6,13 +6,13 @@
     },
     {
       "route": "/",
-      "rewrite": "/api/functions"
+      "rewrite": "/api/server"
     }
   ],
   "platform": {
     "apiRuntime": "node:18"
   },
   "navigationFallback": {
-    "rewrite": "/api/functions"
+    "rewrite": "/api/server"
   }
 }
