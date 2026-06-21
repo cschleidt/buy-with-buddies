@@ -299,7 +299,7 @@ function ListPage() {
         {bought.length > 0 && (
           <div className="mt-8">
             <div className="flex items-center justify-between mb-2 px-1">
-              <h3 className="text-sm font-medium text-muted-foreground">I kurven · {bought.length}</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">Købt · {bought.length}</h3>
               <button onClick={clearBought} className="text-xs text-muted-foreground hover:text-destructive">Ryd</button>
             </div>
             <ul className="space-y-2 opacity-60">
@@ -317,19 +317,24 @@ function ListPage() {
 
 function ItemRow({ item, onToggle, onRemove }: { item: Item; onToggle: () => void; onRemove: () => void }) {
   const qty = item.quantity != null ? `${item.quantity}${item.unit ? " " + item.unit : ""}` : item.unit ?? "";
+  // Visual is inverted: active items show a green check by default;
+  // clicking removes the check and moves the item to "Købt".
+  const showCheck = !item.is_bought;
   return (
     <li className="bg-card border rounded-2xl flex items-center gap-3 pl-2 pr-3 py-2 strike-anim">
       <button
         onClick={onToggle}
         className={`size-11 rounded-full flex items-center justify-center shrink-0 border-2 transition-colors ${
-          item.is_bought ? "bg-primary border-primary text-primary-foreground" : "border-border hover:border-primary"
+          showCheck
+            ? "bg-green-600 border-green-600 text-white hover:bg-green-700"
+            : "border-border hover:border-primary"
         }`}
-        aria-label={item.is_bought ? "Fortryd" : "Markér som købt"}
+        aria-label={item.is_bought ? "Fortryd" : "Flyt til Købt"}
       >
-        {item.is_bought && <Check className="size-5" />}
+        {showCheck && <Check className="size-5" />}
       </button>
       <div className="flex-1 min-w-0">
-        <div className={`font-medium truncate ${item.is_bought ? "line-through" : ""}`}>{item.name}</div>
+        <div className="font-medium truncate">{item.name}</div>
         {(qty || item.note) && (
           <div className="text-xs text-muted-foreground truncate">
             {qty}{qty && item.note ? " · " : ""}{item.note}
