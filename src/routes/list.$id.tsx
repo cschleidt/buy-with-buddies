@@ -299,7 +299,7 @@ function ListPage() {
         {bought.length > 0 && (
           <div className="mt-8">
             <div className="flex items-center justify-between mb-2 px-1">
-              <h3 className="text-sm font-medium text-muted-foreground">I kurven · {bought.length}</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">Købt · {bought.length}</h3>
               <button onClick={clearBought} className="text-xs text-muted-foreground hover:text-destructive">Ryd</button>
             </div>
             <ul className="space-y-2 opacity-60">
