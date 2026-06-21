@@ -1,0 +1,160 @@
+# ============================================================
+# deploy-staging.yml
+# Triggers on every push to the `staging` branch.
+#
+# PIPELINE SHAPE
+# ──────────────
+#   infra ──────────────┐
+#                       ▼
+#   build ──────────▶ deploy ──▶ smoke-test
+#
+# infra and build run in parallel; deploy waits for both.
+#
+# AZURE TARGET
+# ────────────
+#   buy-with-buddies-staging.azurewebsites.net
+#   Resource group: rg-buy-with-buddies-staging
+#
+# SECRETS (set in GitHub → Settings → Environments → staging)
+# ────────────────────────────────────────────────────────────
+#   AZURE_RESOURCE_GROUP         → rg-buy-with-buddies-staging
+#   AZURE_WEBAPP_NAME            → buy-with-buddies-staging
+#   AZURE_WEBAPP_PUBLISH_PROFILE → publish profile for the staging App Service
+#
+# SECRETS (set at repository level)
+# ────────────────────────────────────────────────────────────
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+#   VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+# ============================================================
+
+name: Deploy → Staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+  BUILD_OUTPUT_DIR: '.output'
+
+jobs:
+  # ----------------------------------------------------------
+  # JOB 1a: Infrastructure (Bicep) — idempotent
+  # ----------------------------------------------------------
+  infra:
+    name: Infrastructure (Bicep)
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Bicep (idempotent)
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az deployment group create \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --template-file infra/main.bicep \
+              --parameters infra/main.staging.bicepparam \
+              --mode Incremental \
+              --verbose
+
+  # ----------------------------------------------------------
+  # JOB 1b: Build — runs in parallel with infra
+  # ----------------------------------------------------------
+  build:
+    name: Build (SSR)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build SSR app
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      - name: Verify Nitro output
+        run: |
+          test -f ${{ env.BUILD_OUTPUT_DIR }}/server/index.mjs \
+            && echo "Server entry: EXISTS" \
+            || (echo "Server entry: MISSING" && exit 1)
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-build-${{ github.sha }}
+          path: ${{ env.BUILD_OUTPUT_DIR }}
+          retention-days: 3
+
+  # ----------------------------------------------------------
+  # JOB 2: Deploy to staging App Service
+  # ----------------------------------------------------------
+  deploy-staging:
+    name: Deploy → Staging
+    runs-on: ubuntu-latest
+    needs: [infra, build]
+    environment:
+      name: staging
+      url: https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: staging-build-${{ github.sha }}
+          path: ${{ env.BUILD_OUTPUT_DIR }}
+
+      - name: Deploy to staging App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ${{ env.BUILD_OUTPUT_DIR }}
+
+  # ----------------------------------------------------------
+  # JOB 3: Smoke test
+  # ----------------------------------------------------------
+  smoke-test:
+    name: Smoke Test (staging)
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    environment:
+      name: staging
+
+    steps:
+      - name: Wait for Node.js server to start
+        run: sleep 20
+
+      - name: Check staging is responding
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net)
+          echo "HTTP status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Smoke test FAILED — staging returned $STATUS"
+            exit 1
+          fi
+          echo "Smoke test PASSED"

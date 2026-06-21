@@ -1,0 +1,234 @@
+# ============================================================
+# CI/CD Pipeline: Loveable (TanStack Start SSR) → Azure App Service
+#
+# APP TYPE: TanStack Start + Nitro node-server (SSR)
+#
+# STRATEGY
+# --------
+# Loveable owns `main`. No Azure-specific code lives in the repo.
+# Infrastructure is defined in infra/main.bicep and deployed by this
+# pipeline — app code and infra changes ship together, atomically.
+#
+# PIPELINE SHAPE
+# --------------
+#
+#   infra ──────────────────┐
+#                           ▼
+#   build ──────────────▶ deploy-staging ──▶ smoke-test ──▶ (approval) ──▶ promote-production
+#
+# infra and build run in parallel. deploy-staging waits for both.
+#
+# BOOTSTRAP (one-time manual step — then everything is automated)
+# ---------------------------------------------------------------
+#   1. Create resource group:
+#      az group create --name rg-buy-with-buddies --location westeurope
+#
+#   2. Create service principal:
+#      az ad sp create-for-rbac \
+#        --name sp-buy-with-buddies-github \
+#        --role contributor \
+#        --scopes /subscriptions/<SUB_ID>/resourceGroups/rg-buy-with-buddies
+#
+#   3. Add the output values as GitHub Secrets (see list below).
+#      After that, the pipeline manages everything — including
+#      creating the App Service itself via Bicep.
+#
+# GITHUB SECRETS REQUIRED
+# -----------------------
+#   AZURE_CLIENT_ID              → service principal appId
+#   AZURE_TENANT_ID              → service principal tenant
+#   AZURE_SUBSCRIPTION_ID        → Azure subscription ID
+#   AZURE_RESOURCE_GROUP         → rg-buy-with-buddies
+#   AZURE_WEBAPP_PUBLISH_PROFILE_STAGING    → portal → staging slot → Get publish profile
+#                                             (available after first infra deploy)
+#   AZURE_WEBAPP_PUBLISH_PROFILE_PRODUCTION → portal → App Service → Get publish profile
+#                                             (available after first infra deploy)
+#   VITE_SUPABASE_URL            → production Supabase project URL
+#   VITE_SUPABASE_ANON_KEY       → production Supabase anon key
+# ============================================================
+
+name: Deploy to Azure App Service
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+  AZURE_WEBAPP_NAME: 'buy-with-buddies'
+  BUILD_OUTPUT_DIR: '.output'
+
+jobs:
+  # ----------------------------------------------------------
+  # JOB 1a: Deploy Infrastructure (Bicep)
+  # Runs in parallel with the build job.
+  # Idempotent — safe to run on every push.
+  # ----------------------------------------------------------
+  infra:
+    name: Infrastructure (Bicep)
+    runs-on: ubuntu-latest
+    environment:
+      name: staging   # reuses the same env for Azure login permissions
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Bicep (idempotent)
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az deployment group create \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --template-file infra/main.bicep \
+              --parameters infra/main.bicepparam \
+              --mode Incremental \
+              --verbose
+
+            echo "Infrastructure outputs:"
+            az deployment group show \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --name main \
+              --query properties.outputs
+
+  # ----------------------------------------------------------
+  # JOB 1b: Build (runs in parallel with infra)
+  # ----------------------------------------------------------
+  build:
+    name: Build (SSR)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build SSR app (production)
+        # VITE_* secrets baked into the SSR bundle at build time.
+        # Loveable never sees these — they live only in GitHub Secrets.
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # Add more VITE_* vars here as your app grows
+        run: npm run build
+
+      - name: Verify Nitro output
+        run: |
+          echo "Nitro build output:"
+          ls -la ${{ env.BUILD_OUTPUT_DIR }}/
+          ls -la ${{ env.BUILD_OUTPUT_DIR }}/server/
+          test -f ${{ env.BUILD_OUTPUT_DIR }}/server/index.mjs \
+            && echo "Server entry: EXISTS" \
+            || (echo "Server entry: MISSING — build failed" && exit 1)
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-build-${{ github.sha }}
+          path: ${{ env.BUILD_OUTPUT_DIR }}
+          retention-days: 7
+
+  # ----------------------------------------------------------
+  # JOB 2: Deploy to Staging Slot
+  # Waits for BOTH infra and build to complete.
+  # ----------------------------------------------------------
+  deploy-staging:
+    name: Deploy → Staging
+    runs-on: ubuntu-latest
+    needs: [infra, build]   # ← waits for both parallel jobs
+    environment:
+      name: staging
+      url: https://${{ env.AZURE_WEBAPP_NAME }}-staging.azurewebsites.net
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build-${{ github.sha }}
+          path: ${{ env.BUILD_OUTPUT_DIR }}
+
+      - name: Deploy to staging slot
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          slot-name: staging
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_STAGING }}
+          package: ${{ env.BUILD_OUTPUT_DIR }}
+
+  # ----------------------------------------------------------
+  # JOB 3: Smoke Test (against staging slot)
+  # ----------------------------------------------------------
+  smoke-test:
+    name: Smoke Test (staging)
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+
+    steps:
+      - name: Wait for Node.js server to start
+        run: sleep 20
+
+      - name: Check staging is responding
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://${{ env.AZURE_WEBAPP_NAME }}-staging.azurewebsites.net)
+          echo "HTTP status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Smoke test FAILED — staging returned $STATUS"
+            exit 1
+          fi
+          echo "Smoke test passed"
+
+  # ----------------------------------------------------------
+  # JOB 4: Promote to Production (slot swap)
+  # Manual approval gate via GitHub Environment protection.
+  # Settings → Environments → production → Required reviewers
+  # ----------------------------------------------------------
+  promote-production:
+    name: Promote → Production
+    runs-on: ubuntu-latest
+    needs: smoke-test
+    environment:
+      name: production
+      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Swap staging → production slot
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az webapp deployment slot swap \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --name ${{ env.AZURE_WEBAPP_NAME }} \
+              --slot staging \
+              --target-slot production
+            echo "Swap complete. Production is live."
+
+      - name: Verify production is responding
+        run: |
+          sleep 10
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net)
+          echo "Production HTTP status: $STATUS"
