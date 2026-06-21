@@ -116,7 +116,7 @@ jobs:
     needs: [infra, build]
     environment:
       name: production
-      url: https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net
+      url: https://buy-with-buddies.azurewebsites.net
 
     steps:
       - name: Download build artifact

@@ -118,7 +118,7 @@ jobs:
     needs: [infra, build]
     environment:
       name: staging
-      url: https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net
+      url: https://buy-with-buddies-staging.azurewebsites.net
 
     steps:
       - name: Download build artifact
