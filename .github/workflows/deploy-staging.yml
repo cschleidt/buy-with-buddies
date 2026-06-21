@@ -146,16 +146,18 @@ jobs:
       name: staging
 
     steps:
-      - name: Wait for server to start
-        run: sleep 20
-
-      - name: Check staging is responding
+      - name: Smoke test (retry up to 3 min)
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net)
-          echo "HTTP status: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "Smoke test FAILED — staging returned $STATUS"
-            exit 1
-          fi
-          echo "Smoke test PASSED"
+          URL="https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          echo "Polling $URL ..."
+          for i in $(seq 1 18); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            echo "Attempt $i/18 — HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Smoke test PASSED"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Smoke test FAILED — still returning $STATUS after 3 min"
+          exit 1
