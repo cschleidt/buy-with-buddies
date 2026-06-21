@@ -99,6 +99,19 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 
+      - name: Show build output (debug)
+        run: |
+          echo "=== Root-level dirs/files after build ==="
+          ls -la
+          echo ""
+          echo "=== Likely output candidates ==="
+          for d in .output dist build .vinxi out; do
+            if [ -d "$d" ]; then
+              echo "--- $d/ ---"
+              find "$d" -maxdepth 3 | head -30
+            fi
+          done
+
       - name: Verify Nitro output
         run: |
           test -f ${{ env.BUILD_OUTPUT_DIR }}/server/index.mjs \
