@@ -318,7 +318,7 @@ function ListPage() {
 function ItemRow({ item, onToggle, onRemove }: { item: Item; onToggle: () => void; onRemove: () => void }) {
   const qty = item.quantity != null ? `${item.quantity}${item.unit ? " " + item.unit : ""}` : item.unit ?? "";
   // Visual is inverted: active items show a green check by default;
-  // clicking removes the check and moves the item to "I kurven".
+  // clicking removes the check and moves the item to "Købt".
   const showCheck = !item.is_bought;
   return (
     <li className="bg-card border rounded-2xl flex items-center gap-3 pl-2 pr-3 py-2 strike-anim">
@@ -329,7 +329,7 @@ function ItemRow({ item, onToggle, onRemove }: { item: Item; onToggle: () => voi
             ? "bg-green-600 border-green-600 text-white hover:bg-green-700"
             : "border-border hover:border-primary"
         }`}
-        aria-label={item.is_bought ? "Fortryd" : "Flyt til I kurven"}
+        aria-label={item.is_bought ? "Fortryd" : "Flyt til Købt"}
       >
         {showCheck && <Check className="size-5" />}
       </button>
