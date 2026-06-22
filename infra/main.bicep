@@ -63,9 +63,10 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
     siteConfig: {
       linuxFxVersion: nodeVersion
 
-      // Nitro node-server entry point.
-      // CI deploys .output/ as the app root, so server/index.mjs is at root level.
-      appCommandLine: 'node server/server.js'
+      // TanStack Start / Vinxi builds a Bun-format server (export default { port, fetch }).
+      // Node.js doesn't auto-start that — only Bun does. So we install Bun on first boot
+      // to /home/.bun/ (persisted across restarts) and run with it.
+      appCommandLine: '/bin/bash -c "if [ ! -f /home/.bun/bin/bun ]; then curl -fsSL https://bun.sh/install | BUN_INSTALL=/home/.bun bash; fi && /home/.bun/bin/bun server/server.js"'
 
       // Disable Azure's own npm install/build — CI already built the app.
       appSettings: [
