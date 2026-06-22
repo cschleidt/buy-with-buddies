@@ -63,10 +63,13 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
     siteConfig: {
       linuxFxVersion: nodeVersion
 
-      // TanStack Start / Vinxi builds a Bun-format server (export default { port, fetch }).
-      // Node.js doesn't auto-start that — only Bun does. So we install Bun on first boot
-      // to /home/.bun/ (persisted across restarts) and run with it.
-      appCommandLine: '/bin/bash -c "if [ ! -f /home/.bun/bin/bun ]; then curl -fsSL https://bun.sh/install | BUN_INSTALL=/home/.bun bash; fi && /home/.bun/bin/bun server/server.js"'
+      // TanStack Start / Vinxi builds a Bun-format server (export default { fetch }).
+      // Oryx's startup.sh moves our deployed node_modules/ to _del_node_modules/ and
+      // replaces it with a symlink to /node_modules/ (where it extracted a tar.gz).
+      // We undo that: restore _del_node_modules back to node_modules so Bun finds
+      // all packages (including h3-v2) at the expected path. Also nuke oryx-manifest.toml
+      // so the next restart doesn't trigger the overlay again.
+      appCommandLine: '/bin/bash -c "cd /home/site/wwwroot && if [ -L node_modules ] && [ -d _del_node_modules ]; then rm -f node_modules && mv _del_node_modules node_modules && echo Restored node_modules; fi && rm -f oryx-manifest.toml node_modules.tar.gz && if [ ! -f /home/.bun/bin/bun ]; then curl -fsSL https://bun.sh/install | BUN_INSTALL=/home/.bun bash; fi && /home/.bun/bin/bun server/server.js"'
 
       // Disable Azure's own npm install/build — CI already built the app.
       appSettings: [
