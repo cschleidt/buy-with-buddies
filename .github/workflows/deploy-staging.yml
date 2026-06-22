@@ -95,6 +95,11 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # Override Loveable's cloudflare default. node-server generates a plain
+          # Node.js HTTP server that Azure's reverse proxy can handle correctly.
+          # Without this the build targets Cloudflare Workers (Web Streams), and
+          # Azure's proxy closes the connection mid-stream causing SSR AbortErrors.
+          NITRO_PRESET: node-server
         run: bun run build
 
       - name: Prepare deployment package
