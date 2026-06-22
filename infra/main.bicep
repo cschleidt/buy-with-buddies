@@ -78,8 +78,14 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
           value: '~20'
         }
         {
-          // TanStack Start / Vinxi defaults to port 3000.
-          // This tells Azure's reverse proxy which port to forward to.
+          // Tell the Node.js process which port to bind to.
+          // Azure sets PORT=8080 by default; override so Vinxi binds to 3000.
+          name: 'PORT'
+          value: '3000'
+        }
+        {
+          // Tell Azure's reverse proxy to forward traffic to port 3000
+          // (must match PORT above).
           name: 'WEBSITES_PORT'
           value: '3000'
         }
