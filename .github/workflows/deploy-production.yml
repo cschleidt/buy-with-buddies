@@ -95,6 +95,12 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: bun run build
 
+      - name: Prepare deployment package
+        run: |
+          cp package.json ${{ env.BUILD_OUTPUT_DIR }}/
+          echo "=== dist/ root ===" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/
+          echo "=== First 5 lines of server.js ===" && head -5 ${{ env.BUILD_OUTPUT_DIR }}/server/server.js
+
       - name: Verify build output
         run: |
           test -f ${{ env.BUILD_OUTPUT_DIR }}/server/server.js \
