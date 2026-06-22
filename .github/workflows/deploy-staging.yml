@@ -99,21 +99,27 @@ jobs:
 
       - name: Prepare deployment package
         run: |
-          # Copy package.json into dist so Node.js knows this is an ES module
-          # project (respects "type": "module" when running server/server.js).
+          # The server bundle references external packages (e.g. h3-v2) that are
+          # not bundled into server.js. Install production deps into dist/ so they
+          # are present on Azure when Bun loads the server at runtime.
           cp package.json ${{ env.BUILD_OUTPUT_DIR }}/
-          echo "=== dist/ root ==="
-          ls -la ${{ env.BUILD_OUTPUT_DIR }}/
-          echo "=== dist/server/ ==="
-          ls -la ${{ env.BUILD_OUTPUT_DIR }}/server/
-          echo "=== First 5 lines of server.js (checking ESM vs CJS) ==="
-          head -5 ${{ env.BUILD_OUTPUT_DIR }}/server/server.js
+          cp bun.lock     ${{ env.BUILD_OUTPUT_DIR }}/
+          cp bunfig.toml  ${{ env.BUILD_OUTPUT_DIR }}/ 2>/dev/null || true
+          cd ${{ env.BUILD_OUTPUT_DIR }}
+          bun install --production --frozen-lockfile
+          cd ..
+          echo "=== dist/ root ===" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/
+          echo "=== dist/server/ ===" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/server/
+          echo "=== prod packages: $(ls ${{ env.BUILD_OUTPUT_DIR }}/node_modules/ | wc -l) ==="
 
       - name: Verify build output
         run: |
           test -f ${{ env.BUILD_OUTPUT_DIR }}/server/server.js \
             && echo "Server entry: EXISTS" \
             || (echo "Server entry: MISSING — contents of dist/:" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/ && exit 1)
+          test -d ${{ env.BUILD_OUTPUT_DIR }}/node_modules \
+            && echo "node_modules: PRESENT" \
+            || (echo "node_modules: MISSING" && exit 1)
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
