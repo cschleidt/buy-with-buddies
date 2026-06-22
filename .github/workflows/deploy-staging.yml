@@ -99,18 +99,18 @@ jobs:
 
       - name: Prepare deployment package
         run: |
-          # The server bundle references external packages (e.g. h3-v2) that are
-          # not bundled into server.js. Install production deps into dist/ so they
-          # are present on Azure when Bun loads the server at runtime.
+          # Deploy the full node_modules from the build environment.
+          # h3-v2 is a Vinxi-internal package that only exists in the full
+          # node_modules; it is NOT included in a production-only install.
+          # TODO: switch TanStack Start to preset:'node-server' in app.config.ts
+          # to generate a self-contained Node.js bundle and drop this step.
           cp package.json ${{ env.BUILD_OUTPUT_DIR }}/
-          cp bun.lock     ${{ env.BUILD_OUTPUT_DIR }}/
           cp bunfig.toml  ${{ env.BUILD_OUTPUT_DIR }}/ 2>/dev/null || true
-          cd ${{ env.BUILD_OUTPUT_DIR }}
-          bun install --production --frozen-lockfile
-          cd ..
-          echo "=== dist/ root ===" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/
-          echo "=== dist/server/ ===" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/server/
-          echo "=== prod packages: $(ls ${{ env.BUILD_OUTPUT_DIR }}/node_modules/ | wc -l) ==="
+          cp -r node_modules ${{ env.BUILD_OUTPUT_DIR }}/
+          echo "=== h3 packages in deployment ==="
+          ls ${{ env.BUILD_OUTPUT_DIR }}/node_modules/ | grep -E "^h3" || echo "NONE"
+          echo "=== Total packages: $(ls ${{ env.BUILD_OUTPUT_DIR }}/node_modules/ | wc -l) ==="
+          echo "=== Deployment size ===" && du -sh ${{ env.BUILD_OUTPUT_DIR }}/
 
       - name: Verify build output
         run: |

@@ -90,6 +90,13 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
           name: 'WEBSITES_PORT'
           value: '3000'
         }
+        {
+          // Prevent Oryx from detecting bun/node and replacing our deployed
+          // node_modules with a stale tar.gz from persisted /home/ storage.
+          // We ship a pre-built node_modules in the zip — no overlay needed.
+          name: 'WEBSITE_DISABLE_PERSISTENT_ORYX_OVERLAY'
+          value: '1'
+        }
       ]
 
       // Force HTTPS at the platform level
