@@ -77,6 +77,12 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
           name: 'WEBSITE_NODE_DEFAULT_VERSION'
           value: '~20'
         }
+        {
+          // TanStack Start / Vinxi defaults to port 3000.
+          // This tells Azure's reverse proxy which port to forward to.
+          name: 'WEBSITES_PORT'
+          value: '3000'
+        }
       ]
 
       // Force HTTPS at the platform level
