@@ -8,8 +8,6 @@
 #                       ▼
 #   build ──────────▶ deploy ──▶ smoke-test
 #
-# infra and build run in parallel; deploy waits for both.
-#
 # AZURE TARGET
 # ────────────
 #   buy-with-buddies-staging.azurewebsites.net
@@ -39,7 +37,6 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: '20.x'
   BUILD_OUTPUT_DIR: 'dist'
 
 jobs:
@@ -71,8 +68,7 @@ jobs:
               --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
               --template-file infra/main.bicep \
               --parameters infra/main.staging.bicepparam \
-              --mode Incremental \
-              --verbose
+              --mode Incremental
 
   # ----------------------------------------------------------
   # JOB 1b: Build — runs in parallel with infra
@@ -95,36 +91,13 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          # Override Loveable's cloudflare default. node-server generates a plain
-          # Node.js HTTP server that Azure's reverse proxy can handle correctly.
-          # Without this the build targets Cloudflare Workers (Web Streams), and
-          # Azure's proxy closes the connection mid-stream causing SSR AbortErrors.
-          NITRO_PRESET: node-server
         run: bun run build
-
-      - name: Prepare deployment package
-        run: |
-          # Deploy the full node_modules from the build environment.
-          # h3-v2 is a Vinxi-internal package that only exists in the full
-          # node_modules; it is NOT included in a production-only install.
-          # TODO: switch TanStack Start to preset:'node-server' in app.config.ts
-          # to generate a self-contained Node.js bundle and drop this step.
-          cp package.json ${{ env.BUILD_OUTPUT_DIR }}/
-          cp bunfig.toml  ${{ env.BUILD_OUTPUT_DIR }}/ 2>/dev/null || true
-          cp -r node_modules ${{ env.BUILD_OUTPUT_DIR }}/
-          echo "=== h3 packages in deployment ==="
-          ls ${{ env.BUILD_OUTPUT_DIR }}/node_modules/ | grep -E "^h3" || echo "NONE"
-          echo "=== Total packages: $(ls ${{ env.BUILD_OUTPUT_DIR }}/node_modules/ | wc -l) ==="
-          echo "=== Deployment size ===" && du -sh ${{ env.BUILD_OUTPUT_DIR }}/
 
       - name: Verify build output
         run: |
           test -f ${{ env.BUILD_OUTPUT_DIR }}/server/server.js \
             && echo "Server entry: EXISTS" \
-            || (echo "Server entry: MISSING — contents of dist/:" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/ && exit 1)
-          test -d ${{ env.BUILD_OUTPUT_DIR }}/node_modules \
-            && echo "node_modules: PRESENT" \
-            || (echo "node_modules: MISSING" && exit 1)
+            || (echo "Server entry: MISSING" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/ && exit 1)
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -172,34 +145,10 @@ jobs:
       - name: Smoke test (retry up to 3 min)
         run: |
           URL="https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net"
-          echo "Polling $URL ..."
           for i in $(seq 1 18); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
             echo "Attempt $i/18 — HTTP $STATUS"
-            if [ "$STATUS" = "200" ]; then
-              echo "Smoke test PASSED"
-              exit 0
-            fi
+            if [ "$STATUS" = "200" ]; then echo "Smoke test PASSED" && exit 0; fi
             sleep 10
           done
-          echo "Smoke test FAILED — still returning $STATUS after 3 min"
-          exit 1
-
-      - name: Dump container logs on failure
-        if: failure()
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Fetch container stdout on failure
-        if: failure()
-        uses: azure/CLI@v2
-        with:
-          inlineScript: |
-            echo "=== Last 200 lines of container stdout ==="
-            az webapp log tail \
-              --name ${{ secrets.AZURE_WEBAPP_NAME }} \
-              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --timeout 30 2>/dev/null || true
+          echo "Smoke test FAILED" && exit 1

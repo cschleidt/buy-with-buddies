@@ -3,22 +3,15 @@
 // ============================================================
 // Deploys:
 //   - App Service Plan (Linux)
-//   - App Service (Node 20 LTS, SSR via Nitro)
+//   - App Service (Node 20 LTS, SSR via Nitro node-server preset)
 //
 // This template is environment-agnostic. The param files drive
 // the difference between staging and production:
 //   infra/main.staging.bicepparam    → rg-buy-with-buddies-staging
-//   infra/main.production.bicepparam → rg-buy-with-buddies-prod
+//   infra/main.production.bicepparam → rg-shoppingapp
 //
 // Run once per environment to create, re-run any time to update (idempotent).
 // The CI pipeline runs this automatically on every push to the relevant branch.
-//
-// Manual bootstrap (first time only, per environment):
-//   az group create --name <resourceGroup> --location <location>
-//   az deployment group create \
-//     --resource-group <resourceGroup> \
-//     --template-file infra/main.bicep \
-//     --parameters infra/main.<env>.bicepparam
 // ============================================================
 
 @description('Base name for all resources. Used as the App Service hostname: <appName>.azurewebsites.net')
@@ -48,14 +41,12 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
 }
 
 // ── App Service ───────────────────────────────────────────────
-// Single slot per environment — staging and production are now
-// separate App Services in separate resource groups.
 resource appService 'Microsoft.Web/sites@2022-09-01' = {
   name: appName
   location: location
   kind: 'app,linux'
   identity: {
-    type: 'SystemAssigned'  // Enables Managed Identity for Key Vault etc. later
+    type: 'SystemAssigned'
   }
   properties: {
     serverFarmId: appServicePlan.id
@@ -63,17 +54,13 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
     siteConfig: {
       linuxFxVersion: nodeVersion
 
-      // Built with NITRO_PRESET=node-server so Azure's reverse proxy can handle the
-      // HTTP response without closing the stream mid-render (Cloudflare Web Streams
-      // format causes AbortErrors through Azure's Kudu proxy).
-      // Bun runs both node-server and cloudflare preset outputs — it supports Node.js
-      // http APIs natively. Oryx moves our node_modules to _del_node_modules and
-      // replaces it with a symlink; we restore it before starting so all deps are found.
-      appCommandLine: '/bin/bash -c "cd /home/site/wwwroot && if [ -L node_modules ] && [ -d _del_node_modules ]; then rm -f node_modules && mv _del_node_modules node_modules && echo Restored node_modules; fi && rm -f oryx-manifest.toml node_modules.tar.gz && if [ ! -f /home/.bun/bin/bun ]; then curl -fsSL https://bun.sh/install | BUN_INSTALL=/home/.bun bash; fi && /home/.bun/bin/bun server/server.js"'
+      // Nitro node-server preset outputs a self-contained Node.js HTTP server.
+      // Requires vite.config.ts to set nitro: { preset: 'node-server' }.
+      appCommandLine: 'node server/server.js'
 
-      // Disable Azure's own npm install/build — CI already built the app.
       appSettings: [
         {
+          // Disable Azure's Oryx build — CI already built the app.
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
           value: 'false'
         }
@@ -82,27 +69,19 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
           value: '~20'
         }
         {
-          // Tell the Node.js process which port to bind to.
-          // Azure sets PORT=8080 by default; override so Vinxi binds to 3000.
           name: 'PORT'
           value: '3000'
         }
         {
-          // Tell Azure's reverse proxy to forward traffic to port 3000
-          // (must match PORT above).
           name: 'WEBSITES_PORT'
           value: '3000'
         }
         {
-          // Prevent Oryx from detecting bun/node and replacing our deployed
-          // node_modules with a stale tar.gz from persisted /home/ storage.
-          // We ship a pre-built node_modules in the zip — no overlay needed.
-          name: 'WEBSITE_DISABLE_PERSISTENT_ORYX_OVERLAY'
-          value: '1'
+          name: 'NODE_ENV'
+          value: 'production'
         }
       ]
 
-      // Force HTTPS at the platform level
       http20Enabled: true
       minTlsVersion: '1.2'
     }

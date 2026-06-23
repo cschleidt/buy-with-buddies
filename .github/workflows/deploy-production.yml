@@ -11,7 +11,7 @@
 # AZURE TARGET
 # ────────────
 #   buy-with-buddies.azurewebsites.net
-#   Resource group: rg-buy-with-buddies-prod
+#   Resource group: rg-shoppingapp
 #
 # SECRETS (set in GitHub → Settings → Environments → production)
 # ──────────────────────────────────────────────────────────────
@@ -37,7 +37,6 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: '20.x'
   BUILD_OUTPUT_DIR: 'dist'
 
 jobs:
@@ -69,8 +68,7 @@ jobs:
               --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
               --template-file infra/main.bicep \
               --parameters infra/main.production.bicepparam \
-              --mode Incremental \
-              --verbose
+              --mode Incremental
 
   # ----------------------------------------------------------
   # JOB 1b: Build — runs in parallel with infra
@@ -95,29 +93,11 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: bun run build
 
-      - name: Prepare deployment package
-        run: |
-          # Deploy the full node_modules from the build environment.
-          # h3-v2 is a Vinxi-internal package that only exists in the full
-          # node_modules; it is NOT included in a production-only install.
-          # TODO: switch TanStack Start to preset:'node-server' in app.config.ts
-          # to generate a self-contained Node.js bundle and drop this step.
-          cp package.json ${{ env.BUILD_OUTPUT_DIR }}/
-          cp bunfig.toml  ${{ env.BUILD_OUTPUT_DIR }}/ 2>/dev/null || true
-          cp -r node_modules ${{ env.BUILD_OUTPUT_DIR }}/
-          echo "=== h3 packages in deployment ==="
-          ls ${{ env.BUILD_OUTPUT_DIR }}/node_modules/ | grep -E "^h3" || echo "NONE"
-          echo "=== Total packages: $(ls ${{ env.BUILD_OUTPUT_DIR }}/node_modules/ | wc -l) ==="
-          echo "=== Deployment size ===" && du -sh ${{ env.BUILD_OUTPUT_DIR }}/
-
       - name: Verify build output
         run: |
           test -f ${{ env.BUILD_OUTPUT_DIR }}/server/server.js \
             && echo "Server entry: EXISTS" \
-            || (echo "Server entry: MISSING — contents of dist/:" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/ && exit 1)
-          test -d ${{ env.BUILD_OUTPUT_DIR }}/node_modules \
-            && echo "node_modules: PRESENT" \
-            || (echo "node_modules: MISSING" && exit 1)
+            || (echo "Server entry: MISSING" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/ && exit 1)
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -162,16 +142,13 @@ jobs:
       name: production
 
     steps:
-      - name: Wait for Node.js server to start
-        run: sleep 15
-
-      - name: Check production is responding
+      - name: Smoke test (retry up to 3 min)
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net)
-          echo "HTTP status: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "Smoke test FAILED — production returned $STATUS"
-            exit 1
-          fi
-          echo "Smoke test PASSED"
+          URL="https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          for i in $(seq 1 18); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            echo "Attempt $i/18 — HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then echo "Smoke test PASSED" && exit 0; fi
+            sleep 10
+          done
+          echo "Smoke test FAILED" && exit 1
