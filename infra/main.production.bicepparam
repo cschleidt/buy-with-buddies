@@ -1,17 +1,16 @@
 // ============================================================
 // Production environment parameters
 // Resource group: rg-shoppingapp
-// App Service:    buy-with-buddies.azurewebsites.net
+// App Service:    buy-with-buddies-production.azurewebsites.net
+// App Plan:       plan-buy-with-buddies-production
 // ============================================================
 
 using './main.bicep'
 
-param appName = 'buy-with-buddies'
+param appName = 'buy-with-buddies-production'
 
 param location = 'westeurope'
 
-// B1 minimum for production (always-on, custom domains).
-// Upgrade to P1v3 when you need auto-scaling or more CPU/RAM.
 param planSku = 'B1'
 
 param nodeVersion = 'NODE|20-lts'
