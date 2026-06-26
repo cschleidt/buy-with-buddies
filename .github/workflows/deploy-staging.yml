@@ -95,10 +95,10 @@ jobs:
 
       - name: Verify build output
         run: |
-          test -f ${{ env.BUILD_OUTPUT_DIR }}/server/server.js \
-            && echo "Server entry: EXISTS" \
-            || (echo "Server entry: MISSING" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/ && exit 1)
-
+           test -f .output/server/index.mjs \
+           && echo "Nitro server: EXISTS" \
+           || (echo "Nitro server: MISSING" && ls -la .output/ && exit 1)
+           
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
