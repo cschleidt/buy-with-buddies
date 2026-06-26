@@ -37,7 +37,7 @@ on:
   workflow_dispatch:
 
 env:
-  BUILD_OUTPUT_DIR: 'dist'
+  BUILD_OUTPUT_DIR: '.output'
 
 jobs:
   # ----------------------------------------------------------
