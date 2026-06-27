@@ -56,7 +56,7 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
 
       // Nitro node-server preset outputs a self-contained Node.js HTTP server.
       // Requires vite.config.ts to set nitro: { preset: 'node-server' }.
-      appCommandLine: 'node server/server.js'
+      appCommandLine: 'node server/index.mjs'
 
       appSettings: [
         {
