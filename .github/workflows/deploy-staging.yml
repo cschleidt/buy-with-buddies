@@ -121,7 +121,7 @@ jobs:
         with:
           name: staging-build-${{ github.sha }}
           path: ${{ env.BUILD_OUTPUT_DIR }}
-          include-hidden-files: "true" ✅
+          include-hidden-files: "true"
           if-no-files-found: error
           retention-days: 3
  
