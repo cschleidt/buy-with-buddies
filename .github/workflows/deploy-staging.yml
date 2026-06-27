@@ -141,14 +141,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: staging-build-${{ github.sha }}
-          path: .
+          path: artifact
 
       - name: Deploy to staging App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: .
+          package: artifact
 
   # ----------------------------------------------------------
   # JOB 3: Smoke test
