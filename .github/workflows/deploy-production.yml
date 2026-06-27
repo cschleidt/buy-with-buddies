@@ -11,11 +11,11 @@
 # AZURE TARGET
 # ────────────
 #   buy-with-buddies-production.azurewebsites.net
-#   Resource group: rg-shoppingapp
+#   Resource group: rg-buy-with-buddies-production
 #
 # SECRETS (set in GitHub → Settings → Environments → production)
 # ──────────────────────────────────────────────────────────────
-#   AZURE_RESOURCE_GROUP         → rg-shoppingapp
+#   AZURE_RESOURCE_GROUP         → rg-buy-with-buddies-production
 #   AZURE_WEBAPP_NAME            → buy-with-buddies-production
 #   AZURE_WEBAPP_PUBLISH_PROFILE → publish profile for the production App Service
 #
@@ -37,7 +37,7 @@ on:
   workflow_dispatch:
 
 env:
-  BUILD_OUTPUT_DIR: 'dist'
+  BUILD_OUTPUT_DIR: '.output'
 
 jobs:
   # ----------------------------------------------------------
@@ -59,6 +59,15 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure resource group exists
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az group create \
+              --name ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --location westeurope \
+              --output none
 
       - name: Deploy Bicep (idempotent)
         uses: azure/CLI@v2
@@ -95,7 +104,7 @@ jobs:
 
       - name: Verify build output
         run: |
-          test -f ${{ env.BUILD_OUTPUT_DIR }}/server/server.js \
+          test -f ${{ env.BUILD_OUTPUT_DIR }}/server/index.mjs \
             && echo "Server entry: EXISTS" \
             || (echo "Server entry: MISSING" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/ && exit 1)
 
@@ -104,6 +113,8 @@ jobs:
         with:
           name: production-build-${{ github.sha }}
           path: ${{ env.BUILD_OUTPUT_DIR }}
+          include-hidden-files: "true"
+          if-no-files-found: error
           retention-days: 7
 
   # ----------------------------------------------------------
@@ -122,14 +133,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: production-build-${{ github.sha }}
-          path: ${{ env.BUILD_OUTPUT_DIR }}
+          path: artifact
 
       - name: Deploy to production App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ${{ env.BUILD_OUTPUT_DIR }}
+          package: artifact/.output
 
   # ----------------------------------------------------------
   # JOB 3: Smoke test

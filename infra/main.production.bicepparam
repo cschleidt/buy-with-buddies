@@ -1,6 +1,6 @@
 // ============================================================
 // Production environment parameters
-// Resource group: rg-shoppingapp
+// Resource group: rg-buy-with-buddies-production
 // App Service:    buy-with-buddies-production.azurewebsites.net
 // App Plan:       plan-buy-with-buddies-production
 // ============================================================
