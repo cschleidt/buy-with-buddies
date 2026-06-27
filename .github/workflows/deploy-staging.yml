@@ -106,6 +106,15 @@ jobs:
            test -f ${{ env.BUILD_OUTPUT_DIR }}/server/index.mjs \
            && echo "Nitro server: EXISTS" \
            || (echo "Nitro server: MISSING" && ls -la ${{ env.BUILD_OUTPUT_DIR }}/ && exit 1)
+
+      - name: Debug filesystem before upload
+        run: |
+          echo "PWD:"
+          pwd
+          echo "Root contents:"
+          ls -la
+          echo "Looking for .output everywhere:"
+          find . -type d -name ".output" || true
            
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
