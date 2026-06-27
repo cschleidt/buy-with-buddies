@@ -1,6 +1,6 @@
 // ============================================================
 // Staging environment parameters
-// Resource group: rg-shoppingapp
+// Resource group: rg-buy-with-buddies-staging
 // App Service:    buy-with-buddies-staging.azurewebsites.net
 // App Plan:       plan-buy-with-buddies-staging
 // ============================================================
