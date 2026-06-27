@@ -95,6 +95,12 @@ jobs:
           bun run build
           npx nitro build --config nitro.config.ts
 
+      - name: Debug output
+        run: |
+          echo "After Nitro build:"
+          ls -la
+          ls -la .output || echo ".output missing"
+
       - name: Verify build output
         run: |
            test -f ${{ env.BUILD_OUTPUT_DIR }}/server/index.mjs \
