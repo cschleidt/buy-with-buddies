@@ -27,13 +27,6 @@ param planSku string = 'B1'
 @description('Node.js runtime version.')
 param nodeVersion string = 'NODE|20-lts'
 
-@description('Supabase project URL (runtime env var for server-side code).')
-param supabaseUrl string
-
-@description('Supabase publishable (anon) key (runtime env var for server-side code).')
-@secure()
-param supabasePublishableKey string
-
 // ── App Service Plan ──────────────────────────────────────────
 resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
   name: 'plan-${appName}'
@@ -86,14 +79,6 @@ resource appService 'Microsoft.Web/sites@2022-09-01' = {
         {
           name: 'NODE_ENV'
           value: 'production'
-        }
-        {
-          name: 'SUPABASE_URL'
-          value: supabaseUrl
-        }
-        {
-          name: 'SUPABASE_PUBLISHABLE_KEY'
-          value: supabasePublishableKey
         }
       ]
 

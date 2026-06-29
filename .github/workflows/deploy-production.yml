@@ -68,9 +68,14 @@ jobs:
               --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
               --template-file infra/main.bicep \
               --parameters infra/main.production.bicepparam \
-                           supabaseUrl='${{ secrets.VITE_SUPABASE_URL }}' \
-                           supabasePublishableKey='${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}' \
               --mode Incremental
+
+            az webapp config appsettings set \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --name ${{ secrets.AZURE_WEBAPP_NAME }} \
+              --settings \
+                SUPABASE_URL='${{ secrets.VITE_SUPABASE_URL }}' \
+                SUPABASE_PUBLISHABLE_KEY='${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}'
 
   # ----------------------------------------------------------
   # JOB 1b: Build — runs in parallel with infra
