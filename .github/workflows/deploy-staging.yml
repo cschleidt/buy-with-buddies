@@ -68,6 +68,8 @@ jobs:
               --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
               --template-file infra/main.bicep \
               --parameters infra/main.staging.bicepparam \
+                           supabaseUrl='${{ secrets.VITE_SUPABASE_URL }}' \
+                           supabasePublishableKey='${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}' \
               --mode Incremental
 
   # ----------------------------------------------------------
@@ -90,7 +92,7 @@ jobs:
       - name: Build SSR app
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           NITRO_PRESET: node-server
         run: bun run build
 
