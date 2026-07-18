@@ -1,0 +1,37 @@
+---
+description: Guardrails for editing a Loveable-generated TanStack Start app deployed to Azure with Supabase
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Loveable Azure Guardrails
+
+## Preserve framework invariants
+
+- Keep `.lovable/` files.
+- Keep `vite.config.ts` on `@lovable.dev/vite-tanstack-config`.
+- Keep TanStack Start file-based routing under `src/routes/`.
+- Keep `src/start.ts`, `src/server.ts`, and Nitro `preset: "node-server"`.
+- Treat `src/routeTree.gen.ts` as generated and never edit it manually.
+
+## Keep responsibilities separated
+
+- Put Azure hosting and deployment changes in `infra/` and `.github/workflows/`.
+- Put schema changes in `supabase/migrations/`.
+- Keep app code portable; avoid IIS, `web.config`, or Windows-hosting assumptions unless explicitly requested.
+
+## Avoid breaking Loveable development
+
+- Do not add duplicate Vite plugins already provided by Loveable.
+- Do not migrate the app to Next.js, Remix, or another routing model.
+- Do not swap core framework packages unless the task explicitly requires a migration.
+
+## Check before large edits
+
+- `.lovable/project.json`
+- `vite.config.ts`
+- `src/routes/README.md`
+- `package.json`
+- `infra/main.bicep`
+- `supabase/config.toml`
